@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Name -->
+    <string name="app_name">NexPass</string>
+
+    <!-- Autofill Service -->
+    <string name="autofill_service_description">Fill passwords and usernames from your NexPass vault</string>
+    <string name="autofill_service_label">NexPass Autofill</string>
+    <string name="autofill_unlock_vault">Unlock NexPass to fill passwords</string>
+    <string name="autofill_unlock_title">Unlock Vault</string>
+    <string name="autofill_unlock_message">Unlock your vault to autofill credentials for %s</string>
+
+    <!-- General -->
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="close">Close</string>
+    <string name="search">Search</string>
+    <string name="loading">Loading…</string>
+    <string name="error">Error</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome">Welcome to NexPass</string>
+    <string name="onboarding_description">Secure password manager with Nextcloud sync</string>
+    <string name="create_master_password">Create Master Password</string>
+    <string name="master_password_warning">If you lose your master password, all your stored passwords are unrecoverable. There is no password reset option.</string>
+    <string name="i_understand">I Understand</string>
+
+    <!-- Unlock -->
+    <string name="unlock_vault">Unlock Vault</string>
+    <string name="enter_master_password">Enter master password</string>
+    <string name="unlock">Unlock</string>
+    <string name="use_biometric">Use biometric</string>
+    <string name="biometric_prompt_title">Unlock NexPass</string>
+    <string name="biometric_prompt_subtitle">Use your fingerprint or face to unlock</string>
+
+    <!-- Vault -->
+    <string name="vault_title">Passwords</string>
+    <string name="no_passwords">No passwords yet</string>
+    <string name="add_password">Add Password</string>
+    <string name="search_passwords">Search passwords</string>
+
+    <!-- Password Detail -->
+    <string name="password_title">Title</string>
+    <string name="password_username">Username</string>
+    <string name="password_password">Password</string>
+    <string name="password_url">URL</string>
+    <string name="password_notes">Notes</string>
+    <string name="copy_username">Copy username</string>
+    <string name="copy_password">Copy password</string>
+    <string name="show_password">Show password</string>
+    <string name="hide_password">Hide password</string>
+    <string name="generate_password">Generate Password</string>
+
+    <!-- Settings -->
+    <string name="settings">Settings</string>
+    <string name="sync_settings">Sync Settings</string>
+    <string name="security_settings">Security Settings</string>
+    <string name="about">About</string>
+    <string name="version">Version</string>
+    <string name="logout">Log Out</string>
+
+    <!-- Sync -->
+    <string name="sync_now">Sync Now</string>
+    <string name="last_synced">Last synced: %s</string>
+    <string name="sync_in_progress">Syncing…</string>
+    <string name="sync_success">Sync completed</string>
+    <string name="sync_error">Sync failed</string>
+    <string name="nextcloud_server">Nextcloud Server</string>
+    <string name="app_password">App Password</string>
+
+    <!-- Errors -->
+    <string name="error_network">Network error. Please check your connection.</string>
+    <string name="error_authentication">Authentication failed. Please check your credentials.</string>
+    <string name="error_encryption">Encryption error occurred.</string>
+    <string name="error_generic">An error occurred. Please try again.</string>
+
+    <!-- Content Descriptions (Accessibility) -->
+    <string name="cd_back_button">Back</string>
+    <string name="cd_menu_button">Menu</string>
+    <string name="cd_password_visibility">Toggle password visibility</string>
+    <string name="cd_sync_status">Sync status indicator</string>
+</resources>

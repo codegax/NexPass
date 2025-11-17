@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Enforce HTTPS for all network communications -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- Trust system certificate authorities -->
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Placeholder for custom Nextcloud domains -->
+    <!-- In production, this will be configured dynamically based on user's Nextcloud server -->
+    <!-- For now, commented out until Phase 5 (Sync) implements this -->
+    <!--
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">nextcloud.example.com</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </domain-config>
+    -->
+</network-security-config>

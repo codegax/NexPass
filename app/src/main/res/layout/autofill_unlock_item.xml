@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="16dp"
+    android:background="#FFFFFF"
+    android:gravity="center_vertical">
+
+    <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:contentDescription="@string/autofill_unlock_vault"
+        android:src="@android:drawable/ic_lock_lock"
+        android:tint="#FF000000" />
+
+    <TextView
+        android:id="@+id/autofill_unlock_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:textSize="16sp"
+        android:textColor="#FF000000"
+        tools:text="Unlock NexPass to fill passwords" />
+
+</LinearLayout>

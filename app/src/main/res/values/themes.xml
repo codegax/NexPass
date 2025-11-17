@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme using Material 3 -->
+    <style name="Theme.NexPass" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- This theme will be overridden by Compose Material 3 theming -->
+    </style>
+
+    <!-- Transparent theme for autofill prompt activity -->
+    <style name="Theme.NexPass.Transparent" parent="Theme.NexPass">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
+</resources>
