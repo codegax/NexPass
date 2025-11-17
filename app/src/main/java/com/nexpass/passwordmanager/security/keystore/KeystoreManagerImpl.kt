@@ -1,5 +1,6 @@
 package com.nexpass.passwordmanager.security.keystore
 
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import kotlinx.coroutines.Dispatchers
@@ -117,7 +118,7 @@ class KeystoreManagerImpl : KeystoreManager {
                 ANDROID_KEYSTORE
             )
 
-            val keyGenParameterSpec = KeyGenParameterSpec.Builder(
+            val builder = KeyGenParameterSpec.Builder(
                 BIOMETRIC_KEY_ALIAS,
                 KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
             )
@@ -125,12 +126,19 @@ class KeystoreManagerImpl : KeystoreManager {
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(KEY_SIZE)
                 .setUserAuthenticationRequired(true)
-                .setUserAuthenticationParameters(
+                .setInvalidatedByBiometricEnrollment(true)
+
+            // API 30+ uses setUserAuthenticationParameters, API 29 uses deprecated method
+            val keyGenParameterSpec = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                builder.setUserAuthenticationParameters(
                     0, // Timeout: 0 = require auth for every use
                     KeyProperties.AUTH_BIOMETRIC_STRONG
-                )
-                .setInvalidatedByBiometricEnrollment(true)
-                .build()
+                ).build()
+            } else {
+                @Suppress("DEPRECATION")
+                builder.setUserAuthenticationValidityDurationSeconds(-1) // -1 = require auth for every use
+                    .build()
+            }
 
             keyGenerator.init(keyGenParameterSpec)
             keyGenerator.generateKey()

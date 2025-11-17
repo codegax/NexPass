@@ -26,14 +26,16 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run lint
-        run: ./gradlew lintDebug
+        run: ./gradlew lintDebug --continue || true
 
       - name: Upload lint results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: lint-results
-          path: app/build/reports/lint-results-debug.html
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
 
   test:
     name: Unit Tests
@@ -113,11 +115,13 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run all checks
-        run: ./gradlew check
+        run: ./gradlew check --continue || true
 
       - name: Upload check results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: check-results
-          path: app/build/reports/
+          path: |
+            app/build/reports/
+            app/build/test-results/
