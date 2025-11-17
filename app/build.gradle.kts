@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -31,7 +33,7 @@ android {
     // Signing configuration for release builds
     signingConfigs {
         create("release") {
-            val properties = java.util.Properties()
+            val properties = Properties()
             val signingPropsFile = rootProject.file("signing.properties")
             if (signingPropsFile.exists()) {
                 properties.load(signingPropsFile.inputStream())
