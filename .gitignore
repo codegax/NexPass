@@ -93,6 +93,15 @@ fastlane/screenshots
 fastlane/test_output
 fastlane/readme.md
 
+# Play Store credentials (CRITICAL - never commit!)
+play-store-key.json
+google-services.json
+app/google-services.json
+
+# Fastlane generated files
+*.base64
+keystore.base64
+
 # Version control
 vcs.xml
 
