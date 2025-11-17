@@ -1,0 +1,9 @@
+Initial release of NexPass!
+
+• Secure password management with zero-knowledge encryption
+• Nextcloud Passwords synchronization
+• Android autofill service
+• Password generator
+• Folder and tag organization
+• Export/import with encrypted backups
+• Material 3 UI with dark/light themes

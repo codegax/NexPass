@@ -1,0 +1,77 @@
+# Fastfile for NexPass
+
+default_platform(:android)
+
+platform :android do
+  desc "Deploy a new version to the Google Play Store Internal Track"
+  lane :internal do
+    upload_to_play_store(
+      track: 'internal',
+      aab: 'app/build/outputs/bundle/release/app-release.aab',
+      skip_upload_apk: true,
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false
+    )
+  end
+
+  desc "Deploy a new version to the Google Play Store Alpha Track"
+  lane :alpha do
+    upload_to_play_store(
+      track: 'alpha',
+      aab: 'app/build/outputs/bundle/release/app-release.aab',
+      skip_upload_apk: true,
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false
+    )
+  end
+
+  desc "Deploy a new version to the Google Play Store Beta Track"
+  lane :beta do
+    upload_to_play_store(
+      track: 'beta',
+      aab: 'app/build/outputs/bundle/release/app-release.aab',
+      skip_upload_apk: true,
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false
+    )
+  end
+
+  desc "Promote from Beta to Production"
+  lane :promote_to_production do
+    upload_to_play_store(
+      track: 'beta',
+      track_promote_to: 'production',
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false
+    )
+  end
+
+  desc "Build and deploy to Internal track"
+  lane :deploy_internal do
+    gradle(task: "clean bundleRelease")
+    internal
+  end
+
+  desc "Build and deploy to Beta track"
+  lane :deploy_beta do
+    gradle(task: "clean bundleRelease")
+    beta
+  end
+
+  desc "Update metadata only (no binary upload)"
+  lane :update_metadata do
+    upload_to_play_store(
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false
+    )
+  end
+end

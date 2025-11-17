@@ -1,0 +1,73 @@
+NexPass is a privacy-focused, open-source password manager for Android with zero-knowledge encryption and Nextcloud Passwords synchronization.
+
+<b>🔐 SECURITY & PRIVACY</b>
+• Zero-knowledge encryption - your master password never leaves your device
+• AES-256-GCM encryption for all stored passwords
+• Hardware-backed Android Keystore integration
+• Biometric authentication (fingerprint/face unlock)
+• Auto-lock with configurable timeout
+• Encrypted database with SQLCipher
+• PBKDF2 key derivation (100,000 iterations)
+• No analytics, no telemetry, no tracking
+
+<b>✨ KEY FEATURES</b>
+• Full password management (create, edit, delete, search)
+• Intelligent password generator (character-based and passphrase modes)
+• Folder organization for easy categorization
+• Tag system with 16 color options
+• Favorites for quick access
+• Fast search across all passwords
+• Export/import with encrypted backups
+
+<b>☁️ NEXTCLOUD SYNC</b>
+• Two-way synchronization with Nextcloud Passwords
+• Offline-first architecture - works without internet
+• Smart conflict resolution
+• Zero-knowledge upload - passwords encrypted before transmission
+• Pending queue for offline changes
+
+<b>📱 ANDROID INTEGRATION</b>
+• System-wide autofill service
+• Intelligent credential matching (domain, package, fuzzy)
+• Auto-save for new credentials
+• Material 3 design with dark/light themes
+• Deep linking support
+
+<b>🌟 WHY NEXPASS?</b>
+• 100% open source (GPLv3) - audit the code yourself
+• Self-hosted option via Nextcloud
+• No subscription fees - completely free
+• Privacy-first design - you control your data
+• Active development and community support
+
+<b>🔓 GETTING STARTED</b>
+1. Create a strong master password
+2. Start adding your passwords
+3. Enable biometric unlock for convenience
+4. (Optional) Connect to your Nextcloud server for sync
+5. Enable autofill for seamless login experience
+
+<b>📖 DOCUMENTATION</b>
+Full documentation available at: https://github.com/codegax/nexpass
+
+<b>🛡️ SECURITY</b>
+NexPass uses industry-standard security practices:
+• Master password hashed with PBKDF2 (100,000 iterations)
+• All passwords encrypted with AES-256-GCM
+• Encryption keys protected by Android Keystore
+• HTTPS-only network communication
+• Secure memory wiping for sensitive data
+
+<b>📋 REQUIREMENTS</b>
+• Android 10 or higher
+• (Optional) Nextcloud server with Passwords app for sync
+
+<b>💬 SUPPORT</b>
+• GitHub: https://github.com/codegax/nexpass
+• Email: support@daguva.com
+• Documentation: https://github.com/codegax/nexpass/tree/main/docs
+
+<b>📜 PRIVACY POLICY</b>
+View our privacy policy at: https://github.com/codegax/nexpass/blob/main/PRIVACY_POLICY.md
+
+NexPass is free, open-source software. No ads, no trackers, no data collection. Your passwords are yours alone.

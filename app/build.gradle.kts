@@ -28,6 +28,24 @@ android {
         }
     }
 
+    // Signing configuration for release builds
+    signingConfigs {
+        create("release") {
+            val properties = java.util.Properties()
+            val signingPropsFile = rootProject.file("signing.properties")
+            if (signingPropsFile.exists()) {
+                properties.load(signingPropsFile.inputStream())
+                storeFile = rootProject.file(properties.getProperty("storeFile"))
+                storePassword = properties.getProperty("storePassword")
+                keyAlias = properties.getProperty("keyAlias")
+                keyPassword = properties.getProperty("keyPassword")
+            } else {
+                println("Warning: signing.properties not found. Release build will not be signed.")
+                println("See release/SIGNING.md for setup instructions.")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -40,8 +58,8 @@ android {
             // Security: Disable debugging in release builds
             isDebuggable = false
 
-            // Signing config should be added here when ready for release
-            // signingConfig = signingConfigs.getByName("release")
+            // Sign release builds if signing.properties exists
+            signingConfig = signingConfigs.getByName("release")
         }
 
         debug {

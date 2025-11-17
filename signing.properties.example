@@ -1,0 +1,18 @@
+# Signing Configuration for NexPass Release Builds
+#
+# Copy this file to signing.properties and fill in your actual values
+# See release/SIGNING.md for detailed setup instructions
+#
+# IMPORTANT: Never commit signing.properties to git!
+
+# Path to your release keystore file (relative to project root)
+storeFile=nexpass-release.jks
+
+# Keystore password
+storePassword=YOUR_STORE_PASSWORD_HERE
+
+# Key alias (name of the key in the keystore)
+keyAlias=nexpass-key
+
+# Key password
+keyPassword=YOUR_KEY_PASSWORD_HERE
