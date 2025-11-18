@@ -240,9 +240,10 @@ class PasswordAutofillService : AutofillService() {
             val idEntry = node.idEntry
             val htmlInfo = node.htmlInfo
 
-            // Skip URL bar fields
-            if (idEntry != null && (idEntry.contains("url") || idEntry.contains("address") || idEntry.contains("toolbar"))) {
-                // This is likely a URL bar, skip it
+            // Skip URL bar and search fields
+            val shouldSkip = shouldSkipField(idEntry, nodeHint, autofillHints)
+            if (shouldSkip) {
+                // This is likely a URL bar or search field, skip it
             } else {
                 // Determine field type from multiple sources
                 val fieldType = determineFieldTypeFromNode(hint, nodeHint, inputType, idEntry, htmlInfo)
@@ -271,6 +272,47 @@ class PasswordAutofillService : AutofillService() {
     }
 
     /**
+     * Check if a field should be skipped (URL bars, search fields, etc.)
+     */
+    private fun shouldSkipField(
+        idEntry: String?,
+        nodeHint: CharSequence?,
+        autofillHints: Array<String>?
+    ): Boolean {
+        // Patterns to skip (case-insensitive)
+        val skipPatterns = listOf(
+            "url", "address", "toolbar",           // URL/address bars
+            "search", "query", "find", "lookup",   // Search fields
+            "autocomplete", "suggest", "complete"  // Autocomplete/suggestion fields
+        )
+
+        // Check ID entry
+        idEntry?.lowercase()?.let { id ->
+            if (skipPatterns.any { pattern -> id.contains(pattern) }) {
+                return true
+            }
+        }
+
+        // Check node hint
+        nodeHint?.toString()?.lowercase()?.let { hint ->
+            if (skipPatterns.any { pattern -> hint.contains(pattern) }) {
+                return true
+            }
+        }
+
+        // Check autofill hints
+        autofillHints?.forEach { autofillHint ->
+            autofillHint.lowercase().let { hint ->
+                if (skipPatterns.any { pattern -> hint.contains(pattern) }) {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    /**
      * Determine the field type from multiple sources.
      */
     private fun determineFieldTypeFromNode(
@@ -280,6 +322,51 @@ class PasswordAutofillService : AutofillService() {
         idEntry: String?,
         htmlInfo: android.view.ViewStructure.HtmlInfo?
     ): FieldType {
+        // Search field patterns to exclude
+        val searchPatterns = listOf("search", "query", "find", "lookup", "autocomplete", "suggest", "complete")
+
+        // Check if this is a search field and return UNKNOWN if so
+        // This is a safeguard in case shouldSkipField() missed it
+        autofillHint?.lowercase()?.let { hint ->
+            if (searchPatterns.any { pattern -> hint.contains(pattern) }) {
+                return FieldType.UNKNOWN
+            }
+        }
+
+        nodeHint?.toString()?.lowercase()?.let { hint ->
+            if (searchPatterns.any { pattern -> hint.contains(pattern) }) {
+                return FieldType.UNKNOWN
+            }
+        }
+
+        idEntry?.lowercase()?.let { id ->
+            if (searchPatterns.any { pattern -> id.contains(pattern) }) {
+                return FieldType.UNKNOWN
+            }
+        }
+
+        // Check HTML attributes for search fields (WebViews)
+        htmlInfo?.let { html ->
+            val htmlType = html.attributes?.firstOrNull { it.first == "type" }?.second?.lowercase()
+            if (htmlType == "search") {
+                return FieldType.UNKNOWN
+            }
+
+            val htmlName = html.attributes?.firstOrNull { it.first == "name" }?.second?.lowercase()
+            htmlName?.let { name ->
+                if (searchPatterns.any { pattern -> name.contains(pattern) }) {
+                    return FieldType.UNKNOWN
+                }
+            }
+
+            val htmlId = html.attributes?.firstOrNull { it.first == "id" }?.second?.lowercase()
+            htmlId?.let { id ->
+                if (searchPatterns.any { pattern -> id.contains(pattern) }) {
+                    return FieldType.UNKNOWN
+                }
+            }
+        }
+
         // Check autofill hints first (most reliable)
         autofillHint?.lowercase()?.let { hint ->
             when {
