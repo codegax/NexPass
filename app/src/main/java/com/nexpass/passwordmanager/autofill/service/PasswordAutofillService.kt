@@ -1,5 +1,6 @@
 package com.nexpass.passwordmanager.autofill.service
 
+import android.content.Intent
 import android.os.CancellationSignal
 import android.service.autofill.AutofillService
 import android.service.autofill.FillCallback
@@ -14,6 +15,7 @@ import com.nexpass.passwordmanager.autofill.matcher.AutofillMatcher
 import com.nexpass.passwordmanager.autofill.model.AutofillContext
 import com.nexpass.passwordmanager.autofill.model.AutofillField
 import com.nexpass.passwordmanager.autofill.model.FieldType
+import com.nexpass.passwordmanager.autofill.ui.AutofillSavePromptActivity
 import com.nexpass.passwordmanager.domain.model.PasswordEntry
 import com.nexpass.passwordmanager.domain.repository.PasswordRepository
 import com.nexpass.passwordmanager.data.local.preferences.SecurePreferences
@@ -121,26 +123,34 @@ class PasswordAutofillService : AutofillService() {
 
                 Log.d(TAG, "Save request - Username: $username, Package: $packageName, Domain: $webDomain")
 
-                // Create a new password entry
-                if (password.isNotEmpty()) {
-                    val newEntry = PasswordEntry(
-                        id = UUID.randomUUID().toString(),
-                        title = webDomain ?: packageName,
-                        username = username,
-                        password = password,
-                        url = webDomain?.let { "https://$it" },
-                        notes = null,
-                        folderId = null,
-                        tags = emptyList(),
-                        packageNames = listOf(packageName),
-                        favorite = false,
-                        createdAt = System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis(),
-                        lastModified = System.currentTimeMillis()
-                    )
+                // Check if autosave is enabled
+                if (!securePreferences.isAutosaveEnabled()) {
+                    Log.d(TAG, "Autosave is disabled in settings")
+                    callback.onSuccess()
+                    return@launch
+                }
 
-                    passwordRepository.insert(newEntry)
-                    Log.d(TAG, "Saved new password entry: ${newEntry.title}")
+                // Check if this domain/package is in the never-save list
+                val identifier = webDomain ?: packageName
+                if (securePreferences.getNeverSaveDomains().contains(identifier)) {
+                    Log.d(TAG, "Domain/package is in never-save list: $identifier")
+                    callback.onSuccess()
+                    return@launch
+                }
+
+                // Launch the save prompt activity if password is not empty
+                if (password.isNotEmpty()) {
+                    val intent = Intent(this@PasswordAutofillService, AutofillSavePromptActivity::class.java).apply {
+                        putExtra(AutofillSavePromptActivity.EXTRA_USERNAME, username)
+                        putExtra(AutofillSavePromptActivity.EXTRA_PASSWORD, password)
+                        putExtra(AutofillSavePromptActivity.EXTRA_WEB_DOMAIN, webDomain)
+                        putExtra(AutofillSavePromptActivity.EXTRA_PACKAGE_NAME, packageName)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    }
+
+                    startActivity(intent)
+                    Log.d(TAG, "Launched save prompt activity for: ${webDomain ?: packageName}")
                 }
 
                 callback.onSuccess()

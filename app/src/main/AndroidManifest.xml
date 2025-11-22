@@ -59,6 +59,15 @@
             android:taskAffinity=""
             android:launchMode="singleTask" />
 
+        <!-- Autofill Save Prompt Activity - For prompting to save passwords -->
+        <activity
+            android:name=".autofill.ui.AutofillSavePromptActivity"
+            android:exported="false"
+            android:theme="@style/Theme.NexPass.Transparent"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask" />
+
         <!-- Security Settings -->
         <meta-data
             android:name="android.security.KEYSTORE_PATH_RESTRICTIONS_ENABLED"

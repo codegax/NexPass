@@ -323,6 +323,71 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Autofill & Autosave Section
+            Text(
+                text = "Autofill & Autosave",
+                style = MaterialTheme.typography.headlineSmall
+            )
+
+            // Autosave toggle
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Ask to Save Passwords",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = "Prompt to save credentials when you log in to apps and websites",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = uiState.autosaveEnabled,
+                        onCheckedChange = { viewModel.toggleAutosave(it) }
+                    )
+                }
+            }
+
+            // Clear never-save list
+            if (uiState.neverSaveDomainsCount > 0) {
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Never Save List",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = "You've chosen not to save passwords for ${uiState.neverSaveDomainsCount} sites/apps",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(
+                            onClick = { viewModel.clearNeverSaveList() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Clear Never Save List")
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // Data Management Section
             Text(
                 text = "Data Management",
