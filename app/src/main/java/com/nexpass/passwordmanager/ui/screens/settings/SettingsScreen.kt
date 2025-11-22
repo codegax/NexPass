@@ -1,6 +1,8 @@
 package com.nexpass.passwordmanager.ui.screens.settings
 
+import android.Manifest
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -72,6 +74,16 @@ fun SettingsScreen(
     var isImporting by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Notification permission launcher (Android 13+)
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            snackbarMessage = "Notification permission granted"
+        }
+        // No rationale needed - just silent fail, notifications are optional
+    }
 
     // Export file picker
     val exportFileLauncher = rememberLauncherForActivityResult(
@@ -145,6 +157,19 @@ fun SettingsScreen(
             snackbarMessage = null
         }
     }
+
+    // Request notification permission on Android 13+ when autosave is enabled
+    LaunchedEffect(uiState.autosaveEnabled) {
+        if (uiState.autosaveEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Check if permission is not granted
+            val hasPermission = context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!hasPermission) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -319,6 +344,88 @@ fun SettingsScreen(
                         .fillMaxWidth()
                         .padding(16.dp)
                 )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Autofill & Autosave Section
+            Text(
+                text = "Autofill & Autosave",
+                style = MaterialTheme.typography.headlineSmall
+            )
+
+            // Autosave toggle
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Ask to Save Passwords",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                text = "Get notified when you log in to save new passwords or update existing ones",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = uiState.autosaveEnabled,
+                            onCheckedChange = { viewModel.toggleAutosave(it) }
+                        )
+                    }
+
+                    if (uiState.autosaveEnabled) {
+                        HorizontalDivider()
+                        Text(
+                            text = "How it works:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "• When you log in to apps or websites, you'll receive a notification\n• Tap the notification to save the password to your vault\n• Works without requiring sensitive permissions",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Clear never-save list
+            if (uiState.neverSaveDomainsCount > 0) {
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Never Save List",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = "You've chosen not to save passwords for ${uiState.neverSaveDomainsCount} sites/apps",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(
+                            onClick = { viewModel.clearNeverSaveList() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Clear Never Save List")
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -959,6 +1066,7 @@ fun SettingsScreen(
                     }
                 )
             }
+
         }
     }
 }

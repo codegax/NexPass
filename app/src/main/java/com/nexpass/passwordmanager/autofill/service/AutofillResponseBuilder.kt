@@ -42,13 +42,94 @@ class AutofillResponseBuilder(private val context: Context) {
             dataset?.let { fillResponseBuilder.addDataset(it) }
         }
 
-        // Add save info to allow saving new credentials
+        // Add "Save Password" manual trigger dataset
+        android.util.Log.d("AutofillResponseBuilder", "=== Attempting to build manual save dataset ===")
+        android.util.Log.d("AutofillResponseBuilder", "Fields count: ${fields.size}, Package: $packageName")
+        val saveDataset = buildManualSaveDataset(fields, packageName)
+        if (saveDataset != null) {
+            android.util.Log.d("AutofillResponseBuilder", "✅ Manual save dataset created successfully, adding to response")
+            fillResponseBuilder.addDataset(saveDataset)
+        } else {
+            android.util.Log.w("AutofillResponseBuilder", "❌ Manual save dataset is NULL - not added to response")
+        }
+
+        // Add save info to allow saving new credentials (still needed for native apps)
         val saveInfo = buildSaveInfo(fields)
-        saveInfo?.let { fillResponseBuilder.setSaveInfo(it) }
+        if (saveInfo != null) {
+            fillResponseBuilder.setSaveInfo(saveInfo)
+            android.util.Log.d("AutofillResponseBuilder", "SaveInfo added to FillResponse")
+        } else {
+            android.util.Log.w("AutofillResponseBuilder", "SaveInfo is NULL - won't trigger save dialog!")
+        }
 
         return try {
             fillResponseBuilder.build()
         } catch (e: Exception) {
+            android.util.Log.e("AutofillResponseBuilder", "Failed to build FillResponse", e)
+            null
+        }
+    }
+
+    /**
+     * Build a special "Save Password" dataset that launches manual save flow.
+     */
+    private fun buildManualSaveDataset(
+        fields: List<AutofillField>,
+        packageName: String
+    ): Dataset? {
+        android.util.Log.d("AutofillResponseBuilder", "buildManualSaveDataset() called for package: $packageName")
+
+        // Create intent to launch manual save capture
+        val saveIntent = Intent(context, com.nexpass.passwordmanager.autofill.ui.ManualSaveCaptureActivity::class.java).apply {
+            putExtra("packageName", packageName)
+            // NOTE: Dataset authentication does NOT provide EXTRA_ASSIST_STRUCTURE automatically!
+            // This is a known Android limitation - only FillResponse.setAuthentication() provides it
+        }
+
+        val savePendingIntent = PendingIntent.getActivity(
+            context,
+            1, // Different request code from auth prompt
+            saveIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_CANCEL_CURRENT
+        )
+
+        // Create presentation for "Save Password" option
+        val presentation = RemoteViews(context.packageName, R.layout.autofill_item)
+        presentation.setTextViewText(R.id.autofill_title, "\uD83D\uDCBE Save This Password")
+        presentation.setTextViewText(R.id.autofill_username, "Tap to save current credentials")
+        presentation.setImageViewResource(R.id.autofill_icon, android.R.drawable.ic_menu_save)
+
+        val datasetBuilder = Dataset.Builder(presentation)
+
+        // Set authentication - when user selects this, Android launches our activity
+        // with EXTRA_ASSIST_STRUCTURE containing current field values
+        val usernameField = fields.firstOrNull {
+            it.fieldType == FieldType.USERNAME || it.fieldType == FieldType.EMAIL
+        }
+        val passwordField = fields.firstOrNull { it.fieldType == FieldType.PASSWORD }
+
+        // We need at least one field to attach the authentication to
+        passwordField?.let { field ->
+            android.util.Log.d("AutofillResponseBuilder", "Found password field for manual save dataset")
+            datasetBuilder.setValue(
+                field.autofillId,
+                null, // Don't actually fill any value
+                presentation
+            )
+        } ?: run {
+            android.util.Log.w("AutofillResponseBuilder", "⚠️ No password field found - manual save dataset may not work!")
+        }
+
+        // Set authentication on the dataset
+        datasetBuilder.setAuthentication(savePendingIntent.intentSender)
+        android.util.Log.d("AutofillResponseBuilder", "Set authentication on manual save dataset")
+
+        return try {
+            val dataset = datasetBuilder.build()
+            android.util.Log.d("AutofillResponseBuilder", "✅ Manual save dataset built successfully")
+            dataset
+        } catch (e: Exception) {
+            android.util.Log.e("AutofillResponseBuilder", "❌ Failed to build manual save dataset", e)
             null
         }
     }
@@ -143,18 +224,37 @@ class AutofillResponseBuilder(private val context: Context) {
         }
         val passwordField = fields.firstOrNull { it.fieldType == FieldType.PASSWORD }
 
+        android.util.Log.d("AutofillResponseBuilder", "buildSaveInfo - usernameField: ${usernameField != null}, passwordField: ${passwordField != null}")
+
         // We need at least a password field to save
         if (passwordField == null) {
+            android.util.Log.w("AutofillResponseBuilder", "No password field found - cannot build SaveInfo")
             return null
         }
 
-        val requiredIds = mutableListOf<AutofillId>(passwordField.autofillId)
-        usernameField?.let { requiredIds.add(it.autofillId) }
+        // Only password is required, username is optional
+        val requiredIds = arrayOf(passwordField.autofillId)
 
-        return SaveInfo.Builder(
+        val builder = SaveInfo.Builder(
             SaveInfo.SAVE_DATA_TYPE_USERNAME or SaveInfo.SAVE_DATA_TYPE_PASSWORD,
-            requiredIds.toTypedArray()
-        ).build()
+            requiredIds
+        )
+
+        // Add optional username field if present
+        usernameField?.let {
+            builder.setOptionalIds(arrayOf(it.autofillId))
+            android.util.Log.d("AutofillResponseBuilder", "Added optional username field to SaveInfo")
+        }
+
+        // Set flags to trigger save more aggressively
+        // FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE: Trigger save when all views become invisible (form submission/navigation)
+        // FLAG_DELAY_SAVE: Delay the save UI to better detect form submissions
+        val flags = SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE or SaveInfo.FLAG_DELAY_SAVE
+        builder.setFlags(flags)
+        android.util.Log.d("AutofillResponseBuilder", "Set SaveInfo flags: FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE | FLAG_DELAY_SAVE")
+
+        android.util.Log.d("AutofillResponseBuilder", "Successfully built SaveInfo")
+        return builder.build()
     }
 
     /**
@@ -193,6 +293,15 @@ class AutofillResponseBuilder(private val context: Context) {
             authPendingIntent.intentSender,
             presentation
         )
+
+        // IMPORTANT: Add SaveInfo so Android triggers save dialog after form submission
+        val saveInfo = buildSaveInfo(fields)
+        if (saveInfo != null) {
+            responseBuilder.setSaveInfo(saveInfo)
+            android.util.Log.d("AutofillResponseBuilder", "SaveInfo added to authentication response")
+        } else {
+            android.util.Log.w("AutofillResponseBuilder", "SaveInfo is NULL in authentication response")
+        }
 
         return responseBuilder.build()
     }

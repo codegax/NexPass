@@ -84,4 +84,25 @@ val viewModelModule = module {
             tagRepository = get()
         )
     }
+
+    // Autofill Save Prompt ViewModel
+    viewModel {
+        AutofillSavePromptViewModel(
+            passwordRepository = get(),
+            folderRepository = get(),
+            tagRepository = get(),
+            securePreferences = get()
+        )
+    }
+
+    // Autofill Prompt ViewModel (for unlock during autofill)
+    viewModel {
+        com.nexpass.passwordmanager.autofill.ui.AutofillPromptViewModel(
+            vaultKeyManager = get(),
+            securePreferences = get(),
+            biometricManager = get(),
+            autofillMatcher = get(),
+            autofillResponseBuilder = get()
+        )
+    }
 }

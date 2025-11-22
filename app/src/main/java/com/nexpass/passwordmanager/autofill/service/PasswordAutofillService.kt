@@ -1,5 +1,6 @@
 package com.nexpass.passwordmanager.autofill.service
 
+import android.content.Intent
 import android.os.CancellationSignal
 import android.service.autofill.AutofillService
 import android.service.autofill.FillCallback
@@ -14,13 +15,17 @@ import com.nexpass.passwordmanager.autofill.matcher.AutofillMatcher
 import com.nexpass.passwordmanager.autofill.model.AutofillContext
 import com.nexpass.passwordmanager.autofill.model.AutofillField
 import com.nexpass.passwordmanager.autofill.model.FieldType
+import com.nexpass.passwordmanager.autofill.ui.AutofillSavePromptActivity
+import com.nexpass.passwordmanager.autofill.notification.AutosaveNotificationManager
 import com.nexpass.passwordmanager.domain.model.PasswordEntry
 import com.nexpass.passwordmanager.domain.repository.PasswordRepository
 import com.nexpass.passwordmanager.data.local.preferences.SecurePreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import java.util.UUID
@@ -35,11 +40,18 @@ class PasswordAutofillService : AutofillService() {
     private val passwordRepository: PasswordRepository by inject()
     private val securePreferences: SecurePreferences by inject()
     private val autofillResponseBuilder by lazy { AutofillResponseBuilder(this) }
+    private val notificationManager by lazy { AutosaveNotificationManager(this) }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    // Track pending notification jobs to avoid duplicate notifications
+    private val pendingNotificationJobs = mutableMapOf<String, Job>()
+
     companion object {
         private const val TAG = "PasswordAutofillService"
+        private const val NOTIFICATION_DELAY_MS = 8000L // Wait 8 seconds after field focus before showing notification
+        private const val NEXPASS_PACKAGE_DEBUG = "com.nexpass.passwordmanager.debug"
+        private const val NEXPASS_PACKAGE_RELEASE = "com.nexpass.passwordmanager"
     }
 
     override fun onFillRequest(
@@ -121,26 +133,60 @@ class PasswordAutofillService : AutofillService() {
 
                 Log.d(TAG, "Save request - Username: $username, Package: $packageName, Domain: $webDomain")
 
-                // Create a new password entry
-                if (password.isNotEmpty()) {
-                    val newEntry = PasswordEntry(
-                        id = UUID.randomUUID().toString(),
-                        title = webDomain ?: packageName,
-                        username = username,
-                        password = password,
-                        url = webDomain?.let { "https://$it" },
-                        notes = null,
-                        folderId = null,
-                        tags = emptyList(),
-                        packageNames = listOf(packageName),
-                        favorite = false,
-                        createdAt = System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis(),
-                        lastModified = System.currentTimeMillis()
-                    )
+                // Skip NexPass's own package to avoid saving master password
+                if (packageName == NEXPASS_PACKAGE_DEBUG || packageName == NEXPASS_PACKAGE_RELEASE) {
+                    Log.d(TAG, "Skipping save request - this is NexPass's own package")
+                    callback.onSuccess()
+                    return@launch
+                }
 
-                    passwordRepository.insert(newEntry)
-                    Log.d(TAG, "Saved new password entry: ${newEntry.title}")
+                // Check if autosave is enabled
+                if (!securePreferences.isAutosaveEnabled()) {
+                    Log.d(TAG, "Autosave is disabled in settings")
+                    callback.onSuccess()
+                    return@launch
+                }
+
+                // Check if this domain/package is in the never-save list
+                val identifier = webDomain ?: packageName
+                if (securePreferences.getNeverSaveDomains().contains(identifier)) {
+                    Log.d(TAG, "Domain/package is in never-save list: $identifier")
+                    callback.onSuccess()
+                    return@launch
+                }
+
+                // Check if we have existing entries for this site
+                val existingEntries = try {
+                    passwordRepository.getAll().filter { entry ->
+                        // Check if entry matches by URL or package name
+                        (entry.url == identifier) || entry.packageNames.contains(identifier)
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not check existing entries: ${e.message}")
+                    emptyList()
+                }
+
+                if (password.isNotEmpty()) {
+                    if (existingEntries.isNotEmpty()) {
+                        // For existing sites: Show direct save dialog (password update scenario)
+                        Log.d(TAG, "💾 Launching direct save dialog for password update on existing site: $identifier")
+                        val intent = Intent(this@PasswordAutofillService, AutofillSavePromptActivity::class.java).apply {
+                            putExtra(AutofillSavePromptActivity.EXTRA_USERNAME, username)
+                            putExtra(AutofillSavePromptActivity.EXTRA_PASSWORD, password)
+                            putExtra(AutofillSavePromptActivity.EXTRA_WEB_DOMAIN, webDomain)
+                            putExtra(AutofillSavePromptActivity.EXTRA_PACKAGE_NAME, packageName)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        }
+                        startActivity(intent)
+                    } else {
+                        // For new sites: Show notification (user will manually re-enter)
+                        Log.d(TAG, "📢 Showing autosave notification for new site: ${webDomain ?: packageName}")
+                        notificationManager.showSavePasswordNotification(
+                            packageName = packageName,
+                            webDomain = webDomain
+                        )
+                    }
                 }
 
                 callback.onSuccess()
@@ -160,26 +206,70 @@ class PasswordAutofillService : AutofillService() {
 
         Log.d(TAG, "Found ${matchingEntries.size} matching entries")
 
-        // If no matches, show unlock prompt to allow manual selection
+        // If no matches, schedule notification and show unlock prompt
         if (matchingEntries.isEmpty()) {
-            Log.d(TAG, "No matches found, showing manual search prompt")
+            Log.d(TAG, "⚠️ No matches found, showing unlock/search prompt")
+
+            // Schedule delayed notification for NEW sites if autosave is enabled
+            if (securePreferences.isAutosaveEnabled() && hasPasswordField(context.detectedFields)) {
+                val packageName = context.packageName ?: ""
+
+                // Skip NexPass's own package to avoid saving master password
+                if (packageName == NEXPASS_PACKAGE_DEBUG || packageName == NEXPASS_PACKAGE_RELEASE) {
+                    Log.d(TAG, "Skipping notification - this is NexPass's own package")
+                } else {
+                    val identifier = context.webDomain ?: packageName
+                    // Only show notification if not in never-save list
+                    if (identifier.isNotEmpty() && !securePreferences.getNeverSaveDomains().contains(identifier)) {
+                        scheduleDelayedNotification(
+                            identifier = identifier,
+                            packageName = packageName,
+                            webDomain = context.webDomain
+                        )
+                        Log.d(TAG, "📢 Scheduled notification for NEW site: $identifier")
+                    } else {
+                        Log.d(TAG, "Not scheduling notification - site is in never-save list or invalid")
+                    }
+                }
+            } else {
+                Log.d(TAG, "Not scheduling notification - autosave disabled or no password field")
+            }
+
             return buildLockedResponse(context)
         }
 
-        // Build fill response with datasets
-        return autofillResponseBuilder.buildFillResponse(
+        // Build fill response with datasets for existing entries
+        // This includes a manual "Save" option in the autofill dropdown for updating passwords
+        Log.d(TAG, "Building fill response with ${matchingEntries.size} entries and manual save option")
+        val response = autofillResponseBuilder.buildFillResponse(
             entries = matchingEntries,
             fields = context.detectedFields,
             packageName = context.packageName ?: ""
         )
+        Log.d(TAG, "Fill response built: ${if (response != null) "✅ Success" else "❌ NULL"}")
+        return response
     }
 
     /**
      * Build a fill response when the vault is locked.
      * This prompts the user to unlock.
+     *
+     * @param showNotification Whether to show autosave notification (true for locked vault, false when called after checking entries)
      */
-    private fun buildLockedResponse(context: AutofillContext): FillResponse {
+    private fun buildLockedResponse(context: AutofillContext, showNotification: Boolean = false): FillResponse {
         Log.d(TAG, "Vault is locked, returning authentication response")
+
+        // Show notification to save password if requested
+        if (showNotification && securePreferences.isAutosaveEnabled() && hasPasswordField(context.detectedFields)) {
+            val identifier = context.webDomain ?: context.packageName
+            if (identifier != null && !securePreferences.getNeverSaveDomains().contains(identifier)) {
+                Log.d(TAG, "📢 Showing autosave notification (vault locked): $identifier")
+                notificationManager.showSavePasswordNotification(
+                    packageName = context.packageName ?: "",
+                    webDomain = context.webDomain
+                )
+            }
+        }
 
         return autofillResponseBuilder.buildAuthenticationResponse(
             fields = context.detectedFields,
@@ -240,9 +330,10 @@ class PasswordAutofillService : AutofillService() {
             val idEntry = node.idEntry
             val htmlInfo = node.htmlInfo
 
-            // Skip URL bar fields
-            if (idEntry != null && (idEntry.contains("url") || idEntry.contains("address") || idEntry.contains("toolbar"))) {
-                // This is likely a URL bar, skip it
+            // Skip URL bar and search fields
+            val shouldSkip = shouldSkipField(idEntry, nodeHint, autofillHints)
+            if (shouldSkip) {
+                // This is likely a URL bar or search field, skip it
             } else {
                 // Determine field type from multiple sources
                 val fieldType = determineFieldTypeFromNode(hint, nodeHint, inputType, idEntry, htmlInfo)
@@ -271,6 +362,47 @@ class PasswordAutofillService : AutofillService() {
     }
 
     /**
+     * Check if a field should be skipped (URL bars, search fields, etc.)
+     */
+    private fun shouldSkipField(
+        idEntry: String?,
+        nodeHint: CharSequence?,
+        autofillHints: Array<String>?
+    ): Boolean {
+        // Patterns to skip (case-insensitive)
+        val skipPatterns = listOf(
+            "url", "address", "toolbar",           // URL/address bars
+            "search", "query", "find", "lookup",   // Search fields
+            "autocomplete", "suggest", "complete"  // Autocomplete/suggestion fields
+        )
+
+        // Check ID entry
+        idEntry?.lowercase()?.let { id ->
+            if (skipPatterns.any { pattern -> id.contains(pattern) }) {
+                return true
+            }
+        }
+
+        // Check node hint
+        nodeHint?.toString()?.lowercase()?.let { hint ->
+            if (skipPatterns.any { pattern -> hint.contains(pattern) }) {
+                return true
+            }
+        }
+
+        // Check autofill hints
+        autofillHints?.forEach { autofillHint ->
+            autofillHint.lowercase().let { hint ->
+                if (skipPatterns.any { pattern -> hint.contains(pattern) }) {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    /**
      * Determine the field type from multiple sources.
      */
     private fun determineFieldTypeFromNode(
@@ -280,6 +412,51 @@ class PasswordAutofillService : AutofillService() {
         idEntry: String?,
         htmlInfo: android.view.ViewStructure.HtmlInfo?
     ): FieldType {
+        // Search field patterns to exclude
+        val searchPatterns = listOf("search", "query", "find", "lookup", "autocomplete", "suggest", "complete")
+
+        // Check if this is a search field and return UNKNOWN if so
+        // This is a safeguard in case shouldSkipField() missed it
+        autofillHint?.lowercase()?.let { hint ->
+            if (searchPatterns.any { pattern -> hint.contains(pattern) }) {
+                return FieldType.UNKNOWN
+            }
+        }
+
+        nodeHint?.toString()?.lowercase()?.let { hint ->
+            if (searchPatterns.any { pattern -> hint.contains(pattern) }) {
+                return FieldType.UNKNOWN
+            }
+        }
+
+        idEntry?.lowercase()?.let { id ->
+            if (searchPatterns.any { pattern -> id.contains(pattern) }) {
+                return FieldType.UNKNOWN
+            }
+        }
+
+        // Check HTML attributes for search fields (WebViews)
+        htmlInfo?.let { html ->
+            val htmlType = html.attributes?.firstOrNull { it.first == "type" }?.second?.lowercase()
+            if (htmlType == "search") {
+                return FieldType.UNKNOWN
+            }
+
+            val htmlName = html.attributes?.firstOrNull { it.first == "name" }?.second?.lowercase()
+            htmlName?.let { name ->
+                if (searchPatterns.any { pattern -> name.contains(pattern) }) {
+                    return FieldType.UNKNOWN
+                }
+            }
+
+            val htmlId = html.attributes?.firstOrNull { it.first == "id" }?.second?.lowercase()
+            htmlId?.let { id ->
+                if (searchPatterns.any { pattern -> id.contains(pattern) }) {
+                    return FieldType.UNKNOWN
+                }
+            }
+        }
+
         // Check autofill hints first (most reliable)
         autofillHint?.lowercase()?.let { hint ->
             when {
@@ -504,8 +681,60 @@ class PasswordAutofillService : AutofillService() {
         }
     }
 
+    /**
+     * Schedule a delayed notification to save password.
+     * Delays showing the notification to give user time to enter credentials.
+     *
+     * @param identifier Unique identifier for this login form (domain or package name)
+     * @param packageName The app package name
+     * @param webDomain The web domain (if browser), null otherwise
+     */
+    private fun scheduleDelayedNotification(
+        identifier: String,
+        packageName: String,
+        webDomain: String?
+    ) {
+        // Cancel any existing job for this identifier to avoid duplicate notifications
+        pendingNotificationJobs[identifier]?.cancel()
+
+        Log.d(TAG, "⏱️ Scheduling delayed notification for $identifier (delay: ${NOTIFICATION_DELAY_MS}ms)")
+
+        // Schedule new delayed notification
+        val job = serviceScope.launch {
+            delay(NOTIFICATION_DELAY_MS)
+
+            // Double-check autosave is still enabled and site not in never-save list
+            if (securePreferences.isAutosaveEnabled() &&
+                !securePreferences.getNeverSaveDomains().contains(identifier)) {
+
+                Log.d(TAG, "📢 Showing delayed autosave notification for: $identifier")
+                notificationManager.showSavePasswordNotification(
+                    packageName = packageName,
+                    webDomain = webDomain
+                )
+            } else {
+                Log.d(TAG, "Cancelled notification - autosave disabled or site in never-save list")
+            }
+
+            // Remove job from map after completion
+            pendingNotificationJobs.remove(identifier)
+        }
+
+        pendingNotificationJobs[identifier] = job
+    }
+
+    /**
+     * Check if the detected fields include a password field.
+     */
+    private fun hasPasswordField(fields: List<AutofillField>): Boolean {
+        return fields.any { it.fieldType == FieldType.PASSWORD }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        // Cancel all pending notification jobs
+        pendingNotificationJobs.values.forEach { it.cancel() }
+        pendingNotificationJobs.clear()
         serviceScope.cancel()
     }
 }

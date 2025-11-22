@@ -9,6 +9,9 @@
     <!-- Biometric authentication -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!-- Notification permissions for autosave prompts (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".PasswordManagerApplication"
         android:allowBackup="false"
@@ -53,6 +56,33 @@
         <!-- Autofill Prompt Activity - For vault unlock during autofill -->
         <activity
             android:name=".autofill.ui.AutofillPromptActivity"
+            android:exported="false"
+            android:theme="@style/Theme.NexPass.Transparent"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask" />
+
+        <!-- Autofill Save Prompt Activity - For prompting to save passwords -->
+        <activity
+            android:name=".autofill.ui.AutofillSavePromptActivity"
+            android:exported="false"
+            android:theme="@style/Theme.NexPass.Transparent"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask" />
+
+        <!-- Manual Save Capture Activity - For capturing credentials to save manually -->
+        <activity
+            android:name=".autofill.ui.ManualSaveCaptureActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask" />
+
+        <!-- Notification Password Input Activity - Launched from save password notifications -->
+        <activity
+            android:name=".autofill.ui.NotificationPasswordInputActivity"
             android:exported="false"
             android:theme="@style/Theme.NexPass.Transparent"
             android:excludeFromRecents="true"

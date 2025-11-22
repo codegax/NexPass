@@ -48,6 +48,11 @@ class SecurePreferences(context: Context) {
         // App preferences
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_AUTO_LOCK_TIMEOUT = "auto_lock_timeout"
+
+        // Autosave preferences
+        private const val KEY_AUTOSAVE_ENABLED = "autosave_enabled"
+        private const val KEY_AUTOSAVE_DEFAULT_FOLDER = "autosave_default_folder"
+        private const val KEY_NEVER_SAVE_DOMAINS = "never_save_domains"
     }
 
     fun getLastSyncTimestamp(): Long {
@@ -200,5 +205,75 @@ class SecurePreferences(context: Context) {
      */
     fun setAutoLockTimeout(minutes: Int) {
         sharedPreferences.edit().putInt(KEY_AUTO_LOCK_TIMEOUT, minutes).apply()
+    }
+
+    // Autosave preferences
+
+    /**
+     * Check if autosave is enabled.
+     * @return True if autosave is enabled (default: true)
+     */
+    fun isAutosaveEnabled(): Boolean {
+        return sharedPreferences.getBoolean(KEY_AUTOSAVE_ENABLED, true)
+    }
+
+    /**
+     * Set autosave enabled state.
+     * @param enabled True to enable autosave, false to disable
+     */
+    fun setAutosaveEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_AUTOSAVE_ENABLED, enabled).apply()
+    }
+
+    /**
+     * Get default folder ID for autosaved passwords.
+     * @return Folder ID or null for no default folder
+     */
+    fun getAutosaveDefaultFolder(): String? {
+        return sharedPreferences.getString(KEY_AUTOSAVE_DEFAULT_FOLDER, null)
+    }
+
+    /**
+     * Set default folder for autosaved passwords.
+     * @param folderId Folder ID or null for no default folder
+     */
+    fun setAutosaveDefaultFolder(folderId: String?) {
+        if (folderId == null) {
+            sharedPreferences.edit().remove(KEY_AUTOSAVE_DEFAULT_FOLDER).apply()
+        } else {
+            sharedPreferences.edit().putString(KEY_AUTOSAVE_DEFAULT_FOLDER, folderId).apply()
+        }
+    }
+
+    /**
+     * Get the set of domains/packages that should never be saved.
+     * @return Set of domains/packages to never save
+     */
+    fun getNeverSaveDomains(): Set<String> {
+        val serialized = sharedPreferences.getString(KEY_NEVER_SAVE_DOMAINS, null)
+        return if (serialized != null && serialized.isNotEmpty()) {
+            serialized.split(",").toSet()
+        } else {
+            emptySet()
+        }
+    }
+
+    /**
+     * Add a domain/package to the never-save list.
+     * @param domain Domain or package name to never save
+     */
+    fun addNeverSaveDomain(domain: String) {
+        val current = getNeverSaveDomains().toMutableSet()
+        current.add(domain)
+        sharedPreferences.edit()
+            .putString(KEY_NEVER_SAVE_DOMAINS, current.joinToString(","))
+            .apply()
+    }
+
+    /**
+     * Clear the never-save domains list.
+     */
+    fun clearNeverSaveDomains() {
+        sharedPreferences.edit().remove(KEY_NEVER_SAVE_DOMAINS).apply()
     }
 }

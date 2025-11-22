@@ -26,6 +26,7 @@ import java.io.OutputStream
  * - Auto-lock timeout
  * - Theme selection
  * - Clear vault data
+ * - Autosave toggle
  */
 class SettingsViewModel(
     private val securePreferences: SecurePreferences,
@@ -57,6 +58,8 @@ class SettingsViewModel(
         val lastSyncTimestamp = securePreferences.getLastSyncTimestamp()
         val themeMode = ThemeMode.fromString(securePreferences.getThemeMode())
         val autoLockTimeout = securePreferences.getAutoLockTimeout()
+        val autosaveEnabled = securePreferences.isAutosaveEnabled()
+        val neverSaveDomainsCount = securePreferences.getNeverSaveDomains().size
 
         _uiState.value = SettingsUiState(
             isBiometricAvailable = isBiometricAvailable,
@@ -67,7 +70,9 @@ class SettingsViewModel(
             nextcloudUsername = nextcloudUsername,
             nextcloudConfigured = securePreferences.isNextcloudConfigured(),
             syncEnabled = syncEnabled,
-            lastSyncTimestamp = if (lastSyncTimestamp > 0) lastSyncTimestamp else null
+            lastSyncTimestamp = if (lastSyncTimestamp > 0) lastSyncTimestamp else null,
+            autosaveEnabled = autosaveEnabled,
+            neverSaveDomainsCount = neverSaveDomainsCount
         )
     }
 
@@ -182,6 +187,22 @@ class SettingsViewModel(
     fun updateAutoLockTimeout(minutes: Int) {
         securePreferences.setAutoLockTimeout(minutes)
         _uiState.value = _uiState.value.copy(autoLockTimeout = minutes)
+    }
+
+    /**
+     * Toggle autosave enabled/disabled.
+     */
+    fun toggleAutosave(enabled: Boolean) {
+        securePreferences.setAutosaveEnabled(enabled)
+        _uiState.value = _uiState.value.copy(autosaveEnabled = enabled)
+    }
+
+    /**
+     * Clear the never-save domains list.
+     */
+    fun clearNeverSaveList() {
+        securePreferences.clearNeverSaveDomains()
+        _uiState.value = _uiState.value.copy(neverSaveDomainsCount = 0)
     }
 
     // ========== Export/Import Methods ==========
@@ -352,6 +373,8 @@ data class SettingsUiState(
     val isBiometricEnabled: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val autoLockTimeout: Int = 5, // minutes (-1 for never)
+    val autosaveEnabled: Boolean = true,
+    val neverSaveDomainsCount: Int = 0,
     val nextcloudServerUrl: String = "",
     val nextcloudUsername: String = "",
     val nextcloudConfigured: Boolean = false,
