@@ -43,8 +43,15 @@ class AutofillResponseBuilder(private val context: Context) {
         }
 
         // Add "Save Password" manual trigger dataset
+        android.util.Log.d("AutofillResponseBuilder", "=== Attempting to build manual save dataset ===")
+        android.util.Log.d("AutofillResponseBuilder", "Fields count: ${fields.size}, Package: $packageName")
         val saveDataset = buildManualSaveDataset(fields, packageName)
-        saveDataset?.let { fillResponseBuilder.addDataset(it) }
+        if (saveDataset != null) {
+            android.util.Log.d("AutofillResponseBuilder", "✅ Manual save dataset created successfully, adding to response")
+            fillResponseBuilder.addDataset(saveDataset)
+        } else {
+            android.util.Log.w("AutofillResponseBuilder", "❌ Manual save dataset is NULL - not added to response")
+        }
 
         // Add save info to allow saving new credentials (still needed for native apps)
         val saveInfo = buildSaveInfo(fields)
@@ -70,10 +77,13 @@ class AutofillResponseBuilder(private val context: Context) {
         fields: List<AutofillField>,
         packageName: String
     ): Dataset? {
+        android.util.Log.d("AutofillResponseBuilder", "buildManualSaveDataset() called for package: $packageName")
+
         // Create intent to launch manual save capture
         val saveIntent = Intent(context, com.nexpass.passwordmanager.autofill.ui.ManualSaveCaptureActivity::class.java).apply {
             putExtra("packageName", packageName)
-            // Note: AssistStructure will be automatically added by Android when dataset is selected
+            // NOTE: Dataset authentication does NOT provide EXTRA_ASSIST_STRUCTURE automatically!
+            // This is a known Android limitation - only FillResponse.setAuthentication() provides it
         }
 
         val savePendingIntent = PendingIntent.getActivity(
@@ -100,20 +110,26 @@ class AutofillResponseBuilder(private val context: Context) {
 
         // We need at least one field to attach the authentication to
         passwordField?.let { field ->
+            android.util.Log.d("AutofillResponseBuilder", "Found password field for manual save dataset")
             datasetBuilder.setValue(
                 field.autofillId,
                 null, // Don't actually fill any value
                 presentation
             )
+        } ?: run {
+            android.util.Log.w("AutofillResponseBuilder", "⚠️ No password field found - manual save dataset may not work!")
         }
 
         // Set authentication on the dataset
         datasetBuilder.setAuthentication(savePendingIntent.intentSender)
+        android.util.Log.d("AutofillResponseBuilder", "Set authentication on manual save dataset")
 
         return try {
-            datasetBuilder.build()
+            val dataset = datasetBuilder.build()
+            android.util.Log.d("AutofillResponseBuilder", "✅ Manual save dataset built successfully")
+            dataset
         } catch (e: Exception) {
-            android.util.Log.e("AutofillResponseBuilder", "Failed to build manual save dataset", e)
+            android.util.Log.e("AutofillResponseBuilder", "❌ Failed to build manual save dataset", e)
             null
         }
     }

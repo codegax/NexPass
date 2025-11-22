@@ -25,10 +25,26 @@ class ManualSaveCaptureActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        Log.d(TAG, "=== ManualSaveCaptureActivity launched ===")
+
+        // Log all intent extras to debug what we receive
+        val extras = intent.extras
+        if (extras != null) {
+            Log.d(TAG, "Intent extras received:")
+            for (key in extras.keySet()) {
+                Log.d(TAG, "  - $key: ${extras.get(key)}")
+            }
+        } else {
+            Log.w(TAG, "⚠️ No intent extras received at all!")
+        }
+
         // Extract assist structure from intent
         @Suppress("DEPRECATION")
         val structure = intent.getParcelableExtra<AssistStructure>(EXTRA_ASSIST_STRUCTURE)
         val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: ""
+
+        Log.d(TAG, "Package name: $packageName")
+        Log.d(TAG, "AssistStructure: ${if (structure != null) "✅ Present" else "❌ NULL"}")
 
         // Extract web domain from structure if not provided
         var webDomain = intent.getStringExtra(EXTRA_WEB_DOMAIN)
@@ -37,7 +53,9 @@ class ManualSaveCaptureActivity : ComponentActivity() {
         }
 
         if (structure == null) {
-            Log.e(TAG, "No AssistStructure provided")
+            Log.e(TAG, "❌ CRITICAL: No AssistStructure provided - Dataset authentication doesn't provide it!")
+            Log.e(TAG, "This is a known Android limitation: Dataset.setAuthentication() does NOT include EXTRA_ASSIST_STRUCTURE")
+            Log.e(TAG, "Only FillResponse.setAuthentication() provides EXTRA_ASSIST_STRUCTURE")
             setResult(Activity.RESULT_CANCELED)
             finish()
             return

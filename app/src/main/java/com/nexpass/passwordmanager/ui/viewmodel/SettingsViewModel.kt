@@ -26,6 +26,7 @@ import java.io.OutputStream
  * - Auto-lock timeout
  * - Theme selection
  * - Clear vault data
+ * - Autosave toggle
  */
 class SettingsViewModel(
     private val securePreferences: SecurePreferences,

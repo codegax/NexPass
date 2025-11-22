@@ -9,6 +9,9 @@
     <!-- Biometric authentication -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!-- Notification permissions for autosave prompts (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".PasswordManagerApplication"
         android:allowBackup="false"
@@ -73,6 +76,15 @@
             android:name=".autofill.ui.ManualSaveCaptureActivity"
             android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask" />
+
+        <!-- Notification Password Input Activity - Launched from save password notifications -->
+        <activity
+            android:name=".autofill.ui.NotificationPasswordInputActivity"
+            android:exported="false"
+            android:theme="@style/Theme.NexPass.Transparent"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:launchMode="singleTask" />
