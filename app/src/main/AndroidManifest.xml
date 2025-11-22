@@ -68,6 +68,15 @@
             android:taskAffinity=""
             android:launchMode="singleTask" />
 
+        <!-- Manual Save Capture Activity - For capturing credentials to save manually -->
+        <activity
+            android:name=".autofill.ui.ManualSaveCaptureActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask" />
+
         <!-- Security Settings -->
         <meta-data
             android:name="android.security.KEYSTORE_PATH_RESTRICTIONS_ENABLED"
