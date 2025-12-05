@@ -53,8 +53,12 @@ class PasswordAutofillService : AutofillService() {
         private const val NEXPASS_PACKAGE_DEBUG = "com.nexpass.passwordmanager.debug"
         private const val NEXPASS_PACKAGE_RELEASE = "com.nexpass.passwordmanager"
         
-        // Regex pattern for detecting username-related ID fields
-        private val USERNAME_ID_PATTERN = Regex(".*\\b(user_?id|login_?id|uid)\\b.*")
+        // Regex pattern for detecting username-related ID fields (with word boundaries)
+        private val USERNAME_ID_PATTERN = Regex("\\b(user_?id|login_?id|uid)\\b")
+        // Regex patterns for more precise matching with word boundaries
+        private val USERNAME_PATTERN = Regex("\\b(user|login|account|identifier)\\b")
+        private val EMAIL_PATTERN = Regex("\\b(email|e-mail|e_mail)\\b")
+        private val PASSWORD_PATTERN = Regex("\\bpassword\\b")
     }
 
     override fun onFillRequest(
@@ -444,22 +448,24 @@ class PasswordAutofillService : AutofillService() {
      * Check if a text matches common username field patterns.
      */
     private fun isUsernamePattern(text: String): Boolean {
-        return text.contains("user") || text.contains("login") || text.contains("account") || 
-               text.contains("identifier") || text.matches(USERNAME_ID_PATTERN)
+        return USERNAME_PATTERN.containsMatchIn(text) || USERNAME_ID_PATTERN.containsMatchIn(text)
     }
 
     /**
      * Check if a text matches common email field patterns.
      */
     private fun isEmailPattern(text: String): Boolean {
-        return text.contains("email") || text.contains("e-mail") || text.contains("e_mail")
+        return EMAIL_PATTERN.containsMatchIn(text)
     }
 
     /**
      * Check if a text matches common password field patterns.
      */
     private fun isPasswordPattern(text: String): Boolean {
-        return text.contains("password") || text.contains("pass")
+        // Also check for "pass" as a standalone word or in specific contexts
+        return PASSWORD_PATTERN.containsMatchIn(text) || 
+               text.contains(Regex("\\bpass\\b")) ||
+               text.contains("passwd")
     }
 
     /**
