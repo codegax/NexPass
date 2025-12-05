@@ -52,6 +52,9 @@ class PasswordAutofillService : AutofillService() {
         private const val NOTIFICATION_DELAY_MS = 8000L // Wait 8 seconds after field focus before showing notification
         private const val NEXPASS_PACKAGE_DEBUG = "com.nexpass.passwordmanager.debug"
         private const val NEXPASS_PACKAGE_RELEASE = "com.nexpass.passwordmanager"
+        
+        // Regex pattern for detecting username-related ID fields
+        private val USERNAME_ID_PATTERN = Regex(".*\\b(user_?id|login_?id|uid)\\b.*")
     }
 
     override fun onFillRequest(
@@ -348,7 +351,7 @@ class PasswordAutofillService : AutofillService() {
     private fun parseNode(
         node: android.app.assist.AssistStructure.ViewNode,
         fields: MutableList<AutofillField>,
-        allTextFields: MutableList<AutofillField> = mutableListOf()
+        allTextFields: MutableList<AutofillField>
     ) {
         val autofillId = node.autofillId
         val autofillType = node.autofillType
@@ -541,7 +544,7 @@ class PasswordAutofillService : AutofillService() {
                     name.contains("password") || name.contains("pass") -> return FieldType.PASSWORD
                     name.contains("email") || name.contains("e-mail") || name.contains("e_mail") -> return FieldType.EMAIL
                     name.contains("user") || name.contains("login") || name.contains("account") || 
-                    name.contains("identifier") || name.matches(Regex(".*\\b(user_?id|login_?id|uid)\\b.*")) -> return FieldType.USERNAME
+                    name.contains("identifier") || name.matches(USERNAME_ID_PATTERN) -> return FieldType.USERNAME
                     else -> Unit
                 }
             }
@@ -551,7 +554,7 @@ class PasswordAutofillService : AutofillService() {
                     id.contains("password") || id.contains("pass") -> return FieldType.PASSWORD
                     id.contains("email") || id.contains("e-mail") || id.contains("e_mail") -> return FieldType.EMAIL
                     id.contains("user") || id.contains("login") || id.contains("account") || 
-                    id.contains("identifier") || id.matches(Regex(".*\\b(user_?id|login_?id|uid)\\b.*")) -> return FieldType.USERNAME
+                    id.contains("identifier") || id.matches(USERNAME_ID_PATTERN) -> return FieldType.USERNAME
                     else -> Unit
                 }
             }
@@ -574,7 +577,7 @@ class PasswordAutofillService : AutofillService() {
                 hint.contains("password") || hint.contains("pass") -> return FieldType.PASSWORD
                 hint.contains("email") || hint.contains("e-mail") || hint.contains("e_mail") -> return FieldType.EMAIL
                 hint.contains("user") || hint.contains("login") || hint.contains("account") || 
-                hint.contains("identifier") || hint.matches(Regex(".*\\b(user_?id|login_?id|uid)\\b.*")) -> return FieldType.USERNAME
+                hint.contains("identifier") || hint.matches(USERNAME_ID_PATTERN) -> return FieldType.USERNAME
                 else -> Unit
             }
         }
@@ -585,7 +588,7 @@ class PasswordAutofillService : AutofillService() {
                 id.contains("password") || id.contains("pass") -> return FieldType.PASSWORD
                 id.contains("email") || id.contains("e-mail") || id.contains("e_mail") -> return FieldType.EMAIL
                 id.contains("user") || id.contains("login") || id.contains("account") || 
-                id.contains("identifier") || id.matches(Regex(".*\\b(user_?id|login_?id|uid)\\b.*")) -> return FieldType.USERNAME
+                id.contains("identifier") || id.matches(USERNAME_ID_PATTERN) -> return FieldType.USERNAME
                 else -> Unit
             }
         }
