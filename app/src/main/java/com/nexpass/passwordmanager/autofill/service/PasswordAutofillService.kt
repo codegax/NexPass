@@ -59,6 +59,7 @@ class PasswordAutofillService : AutofillService() {
         private val USERNAME_PATTERN = Regex("\\b(user|login|account|identifier)\\b")
         private val EMAIL_PATTERN = Regex("\\b(email|e-mail|e_mail)\\b")
         private val PASSWORD_PATTERN = Regex("\\bpassword\\b")
+        private val PASS_PATTERN = Regex("\\bpass\\b")
     }
 
     override fun onFillRequest(
@@ -462,9 +463,9 @@ class PasswordAutofillService : AutofillService() {
      * Check if a text matches common password field patterns.
      */
     private fun isPasswordPattern(text: String): Boolean {
-        // Also check for "pass" as a standalone word or in specific contexts
+        // Check for "password", "pass" as standalone words, or "passwd"
         return PASSWORD_PATTERN.containsMatchIn(text) || 
-               text.contains(Regex("\\bpass\\b")) ||
+               PASS_PATTERN.containsMatchIn(text) ||
                text.contains("passwd")
     }
 
@@ -526,9 +527,9 @@ class PasswordAutofillService : AutofillService() {
         // Check autofill hints first (most reliable)
         autofillHint?.lowercase()?.let { hint ->
             when {
-                hint.contains("password") -> return FieldType.PASSWORD
-                hint.contains("username") -> return FieldType.USERNAME
-                hint.contains("email") -> return FieldType.EMAIL
+                isPasswordPattern(hint) -> return FieldType.PASSWORD
+                isEmailPattern(hint) -> return FieldType.EMAIL
+                isUsernamePattern(hint) || hint.contains("username") -> return FieldType.USERNAME
                 else -> Unit
             }
         }
@@ -557,10 +558,6 @@ class PasswordAutofillService : AutofillService() {
             }
             if (htmlType == "email") {
                 return FieldType.EMAIL
-            }
-            // Also check for text/tel types which might be used for username fields
-            if (htmlType == "text" || htmlType == "tel") {
-                // Continue checking other attributes to determine if it's a username field
             }
 
             // Check HTML name/id attributes with expanded patterns
