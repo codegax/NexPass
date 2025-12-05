@@ -441,6 +441,28 @@ class PasswordAutofillService : AutofillService() {
     }
 
     /**
+     * Check if a text matches common username field patterns.
+     */
+    private fun isUsernamePattern(text: String): Boolean {
+        return text.contains("user") || text.contains("login") || text.contains("account") || 
+               text.contains("identifier") || text.matches(USERNAME_ID_PATTERN)
+    }
+
+    /**
+     * Check if a text matches common email field patterns.
+     */
+    private fun isEmailPattern(text: String): Boolean {
+        return text.contains("email") || text.contains("e-mail") || text.contains("e_mail")
+    }
+
+    /**
+     * Check if a text matches common password field patterns.
+     */
+    private fun isPasswordPattern(text: String): Boolean {
+        return text.contains("password") || text.contains("pass")
+    }
+
+    /**
      * Determine the field type from multiple sources.
      */
     private fun determineFieldTypeFromNode(
@@ -541,20 +563,18 @@ class PasswordAutofillService : AutofillService() {
 
             htmlName?.let { name ->
                 when {
-                    name.contains("password") || name.contains("pass") -> return FieldType.PASSWORD
-                    name.contains("email") || name.contains("e-mail") || name.contains("e_mail") -> return FieldType.EMAIL
-                    name.contains("user") || name.contains("login") || name.contains("account") || 
-                    name.contains("identifier") || name.matches(USERNAME_ID_PATTERN) -> return FieldType.USERNAME
+                    isPasswordPattern(name) -> return FieldType.PASSWORD
+                    isEmailPattern(name) -> return FieldType.EMAIL
+                    isUsernamePattern(name) -> return FieldType.USERNAME
                     else -> Unit
                 }
             }
 
             htmlId?.let { id ->
                 when {
-                    id.contains("password") || id.contains("pass") -> return FieldType.PASSWORD
-                    id.contains("email") || id.contains("e-mail") || id.contains("e_mail") -> return FieldType.EMAIL
-                    id.contains("user") || id.contains("login") || id.contains("account") || 
-                    id.contains("identifier") || id.matches(USERNAME_ID_PATTERN) -> return FieldType.USERNAME
+                    isPasswordPattern(id) -> return FieldType.PASSWORD
+                    isEmailPattern(id) -> return FieldType.EMAIL
+                    isUsernamePattern(id) -> return FieldType.USERNAME
                     else -> Unit
                 }
             }
@@ -574,10 +594,9 @@ class PasswordAutofillService : AutofillService() {
         // Check node hint with expanded patterns
         nodeHint?.toString()?.lowercase()?.let { hint ->
             when {
-                hint.contains("password") || hint.contains("pass") -> return FieldType.PASSWORD
-                hint.contains("email") || hint.contains("e-mail") || hint.contains("e_mail") -> return FieldType.EMAIL
-                hint.contains("user") || hint.contains("login") || hint.contains("account") || 
-                hint.contains("identifier") || hint.matches(USERNAME_ID_PATTERN) -> return FieldType.USERNAME
+                isPasswordPattern(hint) -> return FieldType.PASSWORD
+                isEmailPattern(hint) -> return FieldType.EMAIL
+                isUsernamePattern(hint) -> return FieldType.USERNAME
                 else -> Unit
             }
         }
@@ -585,10 +604,9 @@ class PasswordAutofillService : AutofillService() {
         // Check ID entry (resource name) with expanded patterns
         idEntry?.lowercase()?.let { id ->
             when {
-                id.contains("password") || id.contains("pass") -> return FieldType.PASSWORD
-                id.contains("email") || id.contains("e-mail") || id.contains("e_mail") -> return FieldType.EMAIL
-                id.contains("user") || id.contains("login") || id.contains("account") || 
-                id.contains("identifier") || id.matches(USERNAME_ID_PATTERN) -> return FieldType.USERNAME
+                isPasswordPattern(id) -> return FieldType.PASSWORD
+                isEmailPattern(id) -> return FieldType.EMAIL
+                isUsernamePattern(id) -> return FieldType.USERNAME
                 else -> Unit
             }
         }
