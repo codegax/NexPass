@@ -52,6 +52,14 @@ class PasswordAutofillService : AutofillService() {
         private const val NOTIFICATION_DELAY_MS = 8000L // Wait 8 seconds after field focus before showing notification
         private const val NEXPASS_PACKAGE_DEBUG = "com.nexpass.passwordmanager.debug"
         private const val NEXPASS_PACKAGE_RELEASE = "com.nexpass.passwordmanager"
+        
+        // Regex pattern for detecting username-related ID fields (with word boundaries)
+        private val USERNAME_ID_PATTERN = Regex("\\b(user_?id|login_?id|uid)\\b")
+        // Regex patterns for more precise matching with word boundaries
+        private val USERNAME_PATTERN = Regex("\\b(username|user|login|account|identifier)\\b")
+        private val EMAIL_PATTERN = Regex("\\b(email|e-mail|e_mail)\\b")
+        private val PASSWORD_PATTERN = Regex("\\b(password|passwd)\\b")
+        private val PASS_PATTERN = Regex("\\bpass\\b")
     }
 
     override fun onFillRequest(
@@ -295,12 +303,16 @@ class PasswordAutofillService : AutofillService() {
 
         // Parse fields from the view structure
         val fields = mutableListOf<AutofillField>()
+        val allTextFields = mutableListOf<AutofillField>()
 
         if (structure.windowNodeCount > 0) {
             structure.getWindowNodeAt(0)?.rootViewNode?.let { rootNode ->
-                parseNode(rootNode, fields)
+                parseNode(rootNode, fields, allTextFields)
             }
         }
+
+        // Apply heuristics to identify username fields from unidentified text fields
+        applyUsernameHeuristics(fields, allTextFields)
 
         Log.d(TAG, "Parsed ${fields.size} autofill fields")
 
@@ -312,11 +324,39 @@ class PasswordAutofillService : AutofillService() {
     }
 
     /**
+     * Apply heuristics to identify username fields from unidentified text fields.
+     * If we have a password field but no username/email field, and there are unidentified
+     * text fields, we assume the first unidentified text field is the username field.
+     */
+    private fun applyUsernameHeuristics(
+        identifiedFields: MutableList<AutofillField>,
+        unidentifiedFields: List<AutofillField>
+    ) {
+        // Check if we have a password field
+        val hasPasswordField = identifiedFields.any { it.fieldType == FieldType.PASSWORD }
+        
+        // Check if we already have a username or email field
+        val hasUsernameField = identifiedFields.any { 
+            it.fieldType == FieldType.USERNAME || it.fieldType == FieldType.EMAIL 
+        }
+
+        // If we have a password but no username, and there are unidentified fields,
+        // assume the first unidentified field is the username field
+        if (hasPasswordField && !hasUsernameField && unidentifiedFields.isNotEmpty()) {
+            val usernameField = unidentifiedFields.first().copy(fieldType = FieldType.USERNAME)
+            identifiedFields.add(usernameField)
+            Log.d(TAG, "Applied heuristic: Identified unidentified text field as USERNAME (appears with password field)")
+        }
+    }
+
+    /**
      * Recursively parse view nodes to find autofillable fields.
+     * Stores both identified fields and potential unidentified text fields for heuristic analysis.
      */
     private fun parseNode(
         node: android.app.assist.AssistStructure.ViewNode,
-        fields: MutableList<AutofillField>
+        fields: MutableList<AutofillField>,
+        allTextFields: MutableList<AutofillField>
     ) {
         val autofillId = node.autofillId
         val autofillType = node.autofillType
@@ -338,26 +378,29 @@ class PasswordAutofillService : AutofillService() {
                 // Determine field type from multiple sources
                 val fieldType = determineFieldTypeFromNode(hint, nodeHint, inputType, idEntry, htmlInfo)
 
-                // Only add if we can identify the field type
-                if (fieldType != FieldType.UNKNOWN) {
-                    fields.add(
-                        AutofillField(
-                            autofillId = autofillId,
-                            autofillType = autofillType,
-                            hint = hint,
-                            isFocused = node.isFocused,
-                            fieldType = fieldType
-                        )
-                    )
+                val field = AutofillField(
+                    autofillId = autofillId,
+                    autofillType = autofillType,
+                    hint = hint,
+                    isFocused = node.isFocused,
+                    fieldType = fieldType
+                )
 
+                // Add to identified fields if we can determine the type
+                if (fieldType != FieldType.UNKNOWN) {
+                    fields.add(field)
                     Log.d(TAG, "Found autofill field - Hint: $hint, NodeHint: $nodeHint, InputType: $inputType, IdEntry: $idEntry, Type: $fieldType, Focused: ${node.isFocused}")
+                } else {
+                    // Store unidentified text fields for potential heuristic analysis
+                    allTextFields.add(field)
+                    Log.d(TAG, "Found unidentified text field - Hint: $hint, NodeHint: $nodeHint, InputType: $inputType, IdEntry: $idEntry")
                 }
             }
         }
 
         // Recursively parse child nodes
         for (i in 0 until node.childCount) {
-            node.getChildAt(i)?.let { parseNode(it, fields) }
+            node.getChildAt(i)?.let { parseNode(it, fields, allTextFields) }
         }
     }
 
@@ -400,6 +443,29 @@ class PasswordAutofillService : AutofillService() {
         }
 
         return false
+    }
+
+    /**
+     * Check if a text matches common username field patterns.
+     */
+    private fun isUsernamePattern(text: String): Boolean {
+        return USERNAME_PATTERN.containsMatchIn(text) || USERNAME_ID_PATTERN.containsMatchIn(text)
+    }
+
+    /**
+     * Check if a text matches common email field patterns.
+     */
+    private fun isEmailPattern(text: String): Boolean {
+        return EMAIL_PATTERN.containsMatchIn(text)
+    }
+
+    /**
+     * Check if a text matches common password field patterns.
+     */
+    private fun isPasswordPattern(text: String): Boolean {
+        // Check for "password", "passwd", or "pass" as standalone words
+        return PASSWORD_PATTERN.containsMatchIn(text) || 
+               PASS_PATTERN.containsMatchIn(text)
     }
 
     /**
@@ -460,9 +526,9 @@ class PasswordAutofillService : AutofillService() {
         // Check autofill hints first (most reliable)
         autofillHint?.lowercase()?.let { hint ->
             when {
-                hint.contains("password") -> return FieldType.PASSWORD
-                hint.contains("username") -> return FieldType.USERNAME
-                hint.contains("email") -> return FieldType.EMAIL
+                isPasswordPattern(hint) -> return FieldType.PASSWORD
+                isEmailPattern(hint) -> return FieldType.EMAIL
+                isUsernamePattern(hint) -> return FieldType.USERNAME
                 else -> Unit
             }
         }
@@ -493,45 +559,56 @@ class PasswordAutofillService : AutofillService() {
                 return FieldType.EMAIL
             }
 
-            // Check HTML name/id attributes
+            // Check HTML name/id attributes with expanded patterns
             val htmlName = html.attributes?.firstOrNull { it.first == "name" }?.second?.lowercase()
             val htmlId = html.attributes?.firstOrNull { it.first == "id" }?.second?.lowercase()
 
             htmlName?.let { name ->
                 when {
-                    name.contains("password") || name.contains("pass") -> return FieldType.PASSWORD
-                    name.contains("email") -> return FieldType.EMAIL
-                    name.contains("user") || name.contains("login") -> return FieldType.USERNAME
+                    isPasswordPattern(name) -> return FieldType.PASSWORD
+                    isEmailPattern(name) -> return FieldType.EMAIL
+                    isUsernamePattern(name) -> return FieldType.USERNAME
                     else -> Unit
                 }
             }
 
             htmlId?.let { id ->
                 when {
-                    id.contains("password") || id.contains("pass") -> return FieldType.PASSWORD
-                    id.contains("email") -> return FieldType.EMAIL
-                    id.contains("user") || id.contains("login") -> return FieldType.USERNAME
+                    isPasswordPattern(id) -> return FieldType.PASSWORD
+                    isEmailPattern(id) -> return FieldType.EMAIL
+                    isUsernamePattern(id) -> return FieldType.USERNAME
+                    else -> Unit
+                }
+            }
+
+            // Check HTML autocomplete attribute (standard HTML5 attribute)
+            val htmlAutocomplete = html.attributes?.firstOrNull { it.first == "autocomplete" }?.second?.lowercase()
+            htmlAutocomplete?.let { autocomplete ->
+                when {
+                    autocomplete.contains("current-password") || autocomplete.contains("new-password") -> return FieldType.PASSWORD
+                    autocomplete.contains("email") -> return FieldType.EMAIL
+                    autocomplete.contains("username") || autocomplete.contains("nickname") -> return FieldType.USERNAME
                     else -> Unit
                 }
             }
         }
 
-        // Check node hint
+        // Check node hint with expanded patterns
         nodeHint?.toString()?.lowercase()?.let { hint ->
             when {
-                hint.contains("password") || hint.contains("pass") -> return FieldType.PASSWORD
-                hint.contains("email") -> return FieldType.EMAIL
-                hint.contains("user") || hint.contains("login") -> return FieldType.USERNAME
+                isPasswordPattern(hint) -> return FieldType.PASSWORD
+                isEmailPattern(hint) -> return FieldType.EMAIL
+                isUsernamePattern(hint) -> return FieldType.USERNAME
                 else -> Unit
             }
         }
 
-        // Check ID entry (resource name)
+        // Check ID entry (resource name) with expanded patterns
         idEntry?.lowercase()?.let { id ->
             when {
-                id.contains("password") || id.contains("pass") -> return FieldType.PASSWORD
-                id.contains("email") -> return FieldType.EMAIL
-                id.contains("user") || id.contains("login") -> return FieldType.USERNAME
+                isPasswordPattern(id) -> return FieldType.PASSWORD
+                isEmailPattern(id) -> return FieldType.EMAIL
+                isUsernamePattern(id) -> return FieldType.USERNAME
                 else -> Unit
             }
         }
