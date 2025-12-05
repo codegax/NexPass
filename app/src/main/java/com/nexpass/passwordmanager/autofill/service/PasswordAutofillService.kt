@@ -56,9 +56,9 @@ class PasswordAutofillService : AutofillService() {
         // Regex pattern for detecting username-related ID fields (with word boundaries)
         private val USERNAME_ID_PATTERN = Regex("\\b(user_?id|login_?id|uid)\\b")
         // Regex patterns for more precise matching with word boundaries
-        private val USERNAME_PATTERN = Regex("\\b(user|login|account|identifier)\\b")
+        private val USERNAME_PATTERN = Regex("\\b(username|user|login|account|identifier)\\b")
         private val EMAIL_PATTERN = Regex("\\b(email|e-mail|e_mail)\\b")
-        private val PASSWORD_PATTERN = Regex("\\bpassword\\b")
+        private val PASSWORD_PATTERN = Regex("\\b(password|passwd)\\b")
         private val PASS_PATTERN = Regex("\\bpass\\b")
     }
 
@@ -463,10 +463,9 @@ class PasswordAutofillService : AutofillService() {
      * Check if a text matches common password field patterns.
      */
     private fun isPasswordPattern(text: String): Boolean {
-        // Check for "password", "pass" as standalone words, or "passwd"
+        // Check for "password", "passwd", or "pass" as standalone words
         return PASSWORD_PATTERN.containsMatchIn(text) || 
-               PASS_PATTERN.containsMatchIn(text) ||
-               text.contains("passwd")
+               PASS_PATTERN.containsMatchIn(text)
     }
 
     /**
@@ -529,7 +528,7 @@ class PasswordAutofillService : AutofillService() {
             when {
                 isPasswordPattern(hint) -> return FieldType.PASSWORD
                 isEmailPattern(hint) -> return FieldType.EMAIL
-                isUsernamePattern(hint) || hint.contains("username") -> return FieldType.USERNAME
+                isUsernamePattern(hint) -> return FieldType.USERNAME
                 else -> Unit
             }
         }
